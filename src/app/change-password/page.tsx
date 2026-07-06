@@ -31,7 +31,7 @@ export default function ChangePasswordPage() {
       <div style={{
         position: 'absolute', top: '-10%', left: '-10%',
         width: '500px', height: '500px',
-        background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.15) 0%, transparent 70%)',
         borderRadius: '50%', pointerEvents: 'none'
       }} className="animate-float" />
       
@@ -40,7 +40,7 @@ export default function ChangePasswordPage() {
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
             <div style={{ 
               width: '56px', height: '56px', borderRadius: '16px', 
-              background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+              background: 'rgba(var(--primary-rgb),0.1)', border: '1px solid rgba(var(--primary-rgb),0.2)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.2rem'
             }}>
               <ShieldCheck size={28} style={{ color: 'var(--primary-light)' }} />

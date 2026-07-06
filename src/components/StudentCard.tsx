@@ -53,7 +53,7 @@ export default function StudentCard({ student, onConsult, onEditClick }: Props) 
           {/* Avatar */}
           <div style={{
             width: '44px', height: '44px', borderRadius: '12px',
-            background: 'linear-gradient(135deg,#6366f1,#06b6d4)',
+            background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '1.1rem', fontWeight: '700', color: 'white', flexShrink: 0
           }}>
@@ -126,7 +126,7 @@ export default function StudentCard({ student, onConsult, onEditClick }: Props) 
                   { icon: Star, label: 'Stream', value: student.stream ? `Stream ${student.stream}` : null },
                 ].map(({ icon: Icon, label, value }) => value ? (
                   <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'rgba(99,102,241,.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'rgba(var(--primary-rgb),.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Icon size={13} style={{ color: 'var(--primary-light)' }} />
                     </div>
                     <div>
@@ -181,7 +181,7 @@ export default function StudentCard({ student, onConsult, onEditClick }: Props) 
                           {new Date(c.consulted_at).toLocaleString('en-IN')}
                         </span>
                         {c.call_status && (
-                          <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '10px', background: 'rgba(99,102,241,.15)', color: 'var(--primary-light)', border: '1px solid rgba(99,102,241,.2)' }}>
+                          <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '10px', background: 'rgba(var(--primary-rgb),.15)', color: 'var(--primary-light)', border: '1px solid rgba(var(--primary-rgb),.2)' }}>
                             {c.call_status}
                           </span>
                         )}

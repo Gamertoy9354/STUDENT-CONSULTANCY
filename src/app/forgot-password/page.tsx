@@ -33,13 +33,13 @@ export default function ForgotPasswordPage() {
       <div style={{
         position: 'absolute', top: '-10%', left: '-10%',
         width: '500px', height: '500px',
-        background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.15) 0%, transparent 70%)',
         borderRadius: '50%', pointerEvents: 'none'
       }} className="animate-float" />
       <div style={{
         position: 'absolute', bottom: '-10%', right: '-10%',
         width: '600px', height: '600px',
-        background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(var(--accent-rgb),0.1) 0%, transparent 70%)',
         borderRadius: '50%', pointerEvents: 'none'
       }} className="animate-float" />
       
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
                   <ArrowLeft size={16} /> Back to login
                 </Link>
                 <h2 style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Sparkles size={24} style={{ color: '#818cf8' }} />
+                  <Sparkles size={24} style={{ color: 'var(--accent)' }} />
                   Forgot Password?
                 </h2>
                 <p style={{ color: 'var(--text-muted)', marginTop: '0.6rem', fontSize: '0.9rem', lineHeight: '1.5' }}>

@@ -12,7 +12,7 @@ interface Props {
 const MODES = [
   { value: 'add',      label: 'Add Points',      icon: Plus,   color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.3)'  },
   { value: 'subtract', label: 'Remove Points',   icon: Minus,  color: '#f87171', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)'   },
-  { value: 'set',      label: 'Set Exact Value', icon: Target, color: '#818cf8', bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.3)'  },
+  { value: 'set',      label: 'Set Exact Value', icon: Target, color: '#314bb7', bg: 'rgba(27,50,128,0.1)',  border: 'rgba(27,50,128,0.3)'  },
 ] as const
 
 export default function AdjustPointsModal({ faculty, onClose }: Props) {

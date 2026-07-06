@@ -10,6 +10,7 @@ export async function submitConsultation(data: {
   remarks: string
   language_used: string
   next_followup_date?: string
+  interested_branch?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -84,6 +85,13 @@ export async function submitConsultation(data: {
   }).select().single()
 
   if (error) return { error: error.message }
+
+  if (data.interested_branch) {
+    await supabase
+      .from('students')
+      .update({ interested_branch: data.interested_branch })
+      .eq('id', data.student_id)
+  }
 
   revalidatePath('/dashboard')
   return { success: true, points_earned: points }
@@ -450,7 +458,7 @@ export async function getAdminStats() {
     supabase.from('students').select('*', { count: 'exact', head: true }),
     supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'New'),
     supabase.from('students').select('*', { count: 'exact', head: true }).neq('status', 'New'),
-    supabase.from('students').select('*', { count: 'exact', head: true }).in('status', ['Registered', 'Admitted']),
+    supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'Admitted'),
     supabase.from('faculty').select('*', { count: 'exact', head: true }).eq('role', 'faculty'),
     supabase.from('consultations').select('*', { count: 'exact', head: true }),
   ])

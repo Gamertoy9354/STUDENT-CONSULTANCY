@@ -113,8 +113,8 @@ export default function AddFacultyModal({ onClose, onSuccess, adminFaculty }: Pr
                       style={{
                         flex: 1, padding: '10px', borderRadius: '10px', cursor: 'pointer', fontWeight: '600',
                         border: '1px solid', transition: 'all 0.2s',
-                        background: form.role === role ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                        borderColor: form.role === role ? 'rgba(99,102,241,0.5)' : 'var(--border)',
+                        background: form.role === role ? 'rgba(var(--primary-rgb),0.2)' : 'rgba(255,255,255,0.03)',
+                        borderColor: form.role === role ? 'rgba(var(--primary-rgb),0.5)' : 'var(--border)',
                         color: form.role === role ? 'var(--primary-light)' : 'var(--text-secondary)',
                         fontSize: '0.85rem', textTransform: 'capitalize'
                       }}

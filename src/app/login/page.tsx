@@ -28,20 +28,20 @@ export default function LoginPage() {
       <div style={{
         position: 'absolute', top: '-10%', left: '-10%',
         width: '500px', height: '500px',
-        background: 'radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(var(--primary-rgb),0.15) 0%, transparent 70%)',
         borderRadius: '50%', pointerEvents: 'none'
       }} className="animate-float" />
       <div style={{
         position: 'absolute', bottom: '-10%', right: '-10%',
         width: '600px', height: '600px',
-        background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, transparent 70%)',
+        background: 'radial-gradient(circle, rgba(var(--accent-rgb),0.1) 0%, transparent 70%)',
         borderRadius: '50%', pointerEvents: 'none'
       }} className="animate-float" />
       
       {/* Grid pattern */}
       <div style={{
         position: 'absolute', inset: 0,
-        backgroundImage: 'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(rgba(var(--primary-rgb),0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--primary-rgb),0.03) 1px, transparent 1px)',
         backgroundSize: '50px 50px',
         pointerEvents: 'none'
       }} />
@@ -53,17 +53,17 @@ export default function LoginPage() {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: '90px', height: '90px', borderRadius: '24px',
             background: 'var(--bg-card)', border: '1px solid var(--border)',
-            marginBottom: '1rem', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', padding: '8px', overflow: 'hidden'
+            marginBottom: '1rem', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', padding: '8px', overflow: 'hidden'
           }}>
             <img src="/RNGPIT.png" alt="RNGPIT Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
-          <h1 style={{ fontSize: '2.2rem', fontWeight: '900', background: 'linear-gradient(135deg, #f1f5f9, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 style={{ fontSize: '2.2rem', fontWeight: '900', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             RNGPIT
           </h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '1rem', fontWeight: '600' }}>
             Students Counselling Portal
           </p>
-          <div style={{ marginTop: '0.4rem', border: '1px solid rgba(129,140,248,0.3)', borderRadius: '20px', padding: '2px 14px', display: 'inline-block', fontSize: '0.75rem', fontWeight: '700', color: '#818cf8', letterSpacing: '0.05em' }}>
+          <div style={{ marginTop: '0.4rem', border: '1px solid rgba(var(--primary-rgb),0.3)', borderRadius: '20px', padding: '2px 14px', display: 'inline-block', fontSize: '0.75rem', fontWeight: '700', color: 'var(--primary-light)', letterSpacing: '0.05em' }}>
             ADMISSION CAMPAIGN 2K26
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function LoginPage() {
         <div className="glass-card" style={{ padding: '2.5rem' }}>
           <div style={{ marginBottom: '1.5rem' }}>
             <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={20} style={{ color: '#818cf8' }} />
+              <Sparkles size={20} style={{ color: 'var(--accent)' }} />
               Welcome Back
             </h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '0.4rem', fontSize: '0.9rem' }}>
@@ -162,7 +162,7 @@ export default function LoginPage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '1.5rem', flexWrap: 'wrap' }}>
           {['Secure', 'Role-Based Access', 'Voice-Enabled'].map(badge => (
             <span key={badge} style={{
-              background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+              background: 'rgba(var(--primary-rgb),0.1)', border: '1px solid rgba(var(--primary-rgb),0.2)',
               borderRadius: '20px', padding: '4px 12px', fontSize: '0.75rem',
               color: 'var(--text-muted)'
             }}>{badge}</span>

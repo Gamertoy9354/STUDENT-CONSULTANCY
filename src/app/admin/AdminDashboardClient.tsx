@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, useTransition } from 'react'
 import * as XLSX from 'xlsx'
 import { logout } from '@/lib/actions/auth'
 import { importStudents, deleteFaculty, updateFacultyPoints } from '@/lib/actions/consultancy'
@@ -23,7 +23,9 @@ import ResetPasswordModal from '@/components/ResetPasswordModal'
 interface Stats {
   totalStudents: number
   newStudents: number
-  consultedStudents: number
+  contactedStudents: number
+  interestedStudents: number
+  registeredStudents: number
   convertedStudents: number
   totalConsultations: number
   totalFaculty: number
@@ -32,7 +34,6 @@ interface Stats {
 
 interface Props {
   adminFaculty: any
-  initialStudents: any[]
   allFaculty: any[]
   stats: Stats
 }
@@ -45,35 +46,100 @@ const STATUS_COLORS: Record<string, string> = {
   Admitted: '#34d399',
 }
 
-const CHART_COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+const CHART_COLORS = ['#1b3280', '#eab308', '#0d9488', '#f97316', '#ef4444', '#3b82f6']
 
-export default function AdminDashboardClient({ adminFaculty, initialStudents, allFaculty, stats }: Props) {
-  const [students, setStudents] = useState(initialStudents)
+const PAGE_SIZE = 100
+
+export default function AdminDashboardClient({ adminFaculty, allFaculty, stats }: Props) {
+  // ── Student server-side state ───────────────────────────────────────────────
+  const [students, setStudents]             = useState<any[]>([])
+  const [studentsTotal, setStudentsTotal]   = useState(0)
+  const [studentsTotalPages, setStudentsTotalPages] = useState(1)
+  const [studentsLoading, setStudentsLoading] = useState(false)
+  const [studentsPending, startTransition]  = useTransition()
+  const [exporting, setExporting]           = useState(false)
+
+  // ── Filter state ───────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'overview' | 'students' | 'faculty' | 'settings'>('overview')
-  const [search, setSearch] = useState('')
+  const [search, setSearch]             = useState('')
+  const [searchInput, setSearchInput]   = useState('')   // debounced separately
   const [statusFilter, setStatusFilter] = useState('')
   const [streamFilter, setStreamFilter] = useState('')
   const [facultyFilter, setFacultyFilter] = useState('')
-  const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState<{ success?: boolean; message?: string } | null>(null)
-  const [showAddFaculty, setShowAddFaculty] = useState(false)
-  const [importData, setImportData] = useState<any[] | null>(null)
-  const [importPreview, setImportPreview] = useState<any[] | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const displayName = adminFaculty.full_name?.replace(/INNOCREW/i, 'RNGPIT') || 'RNGPIT Admin'
+  const [currentPage, setCurrentPage]   = useState(1)
 
-  const [facultySearch, setFacultySearch] = useState('')
-  const [facultyDeptFilter, setFacultyDeptFilter] = useState('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Fetch students from API ─────────────────────────────────────────────────
+  const fetchStudents = useCallback(async (
+    page: number, srch: string, stat: string, strm: string, fac: string
+  ) => {
+    setStudentsLoading(true)
+    try {
+      const params = new URLSearchParams({
+        page:     String(page),
+        pageSize: String(PAGE_SIZE),
+        ...(srch && { search: srch }),
+        ...(stat && { status: stat }),
+        ...(strm && { stream: strm }),
+        ...(fac  && { faculty: fac }),
+      })
+      const res = await fetch(`/api/admin/students?${params}`)
+      const json = await res.json()
+      if (res.ok) {
+        setStudents(json.students)
+        setStudentsTotal(json.total)
+        setStudentsTotalPages(json.totalPages)
+      }
+    } finally {
+      setStudentsLoading(false)
+    }
+  }, [])
+
+  // Initial load + refetch when filters change
+  useEffect(() => {
+    startTransition(() => {
+      fetchStudents(currentPage, search, statusFilter, streamFilter, facultyFilter)
+    })
+  }, [currentPage, search, statusFilter, streamFilter, facultyFilter, fetchStudents])
+
+  // Debounce the search input
+  function handleSearchChange(val: string) {
+    setSearchInput(val)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setSearch(val)
+      setCurrentPage(1)
+    }, 350)
+  }
+
+  // Reset page on any filter change
+  function applyFilter(setter: (v: string) => void, val: string) {
+    setter(val)
+    setCurrentPage(1)
+  }
+
+  // ── Misc UI state ──────────────────────────────────────────────────────────
+  const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
+  const [importing, setImporting]             = useState(false)
+  const [importResult, setImportResult]       = useState<{ success?: boolean; message?: string } | null>(null)
+  const [showAddFaculty, setShowAddFaculty]   = useState(false)
+  const [importData, setImportData]           = useState<any[] | null>(null)
+  const [importPreview, setImportPreview]     = useState<any[] | null>(null)
+  const [sidebarOpen, setSidebarOpen]         = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const displayName  = adminFaculty.full_name?.replace(/INNOCREW/i, 'RNGPIT') || 'RNGPIT Admin'
+
+  const [facultySearch, setFacultySearch]           = useState('')
+  const [facultyDeptFilter, setFacultyDeptFilter]   = useState('')
   const [facultyLoginFilter, setFacultyLoginFilter] = useState('')
-  const [expandedFaculty, setExpandedFaculty] = useState<string | null>(null)
-  const [editingFaculty, setEditingFaculty] = useState<any | null>(null)
+  const [expandedFaculty, setExpandedFaculty]       = useState<string | null>(null)
+  const [editingFaculty, setEditingFaculty]         = useState<any | null>(null)
   const [resettingPasswordFaculty, setResettingPasswordFaculty] = useState<any | null>(null)
-  const [adjustingPointsFaculty, setAdjustingPointsFaculty] = useState<any | null>(null)
-  const [deletingFacultyId, setDeletingFacultyId] = useState<string | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
-  const [deleteError, setDeleteError] = useState('')
+  const [adjustingPointsFaculty, setAdjustingPointsFaculty]     = useState<any | null>(null)
+  const [deletingFacultyId, setDeletingFacultyId]   = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading]           = useState(false)
+  const [deleteError, setDeleteError]               = useState('')
 
   async function handleDeleteFaculty(facultyId: string) {
     setDeleteLoading(true)
@@ -87,13 +153,11 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
     }
   }
 
-  const [showAddSingleStudent, setShowAddSingleStudent] = useState(false)
-  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [showAddSingleStudent, setShowAddSingleStudent]   = useState(false)
+  const [showPasteModal, setShowPasteModal]               = useState(false)
   const [showPasteFacultyModal, setShowPasteFacultyModal] = useState(false)
-  const [showReassignModal, setShowReassignModal] = useState(false)
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set())
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 100
+  const [showReassignModal, setShowReassignModal]         = useState(false)
+  const [selectedStudents, setSelectedStudents]           = useState<Set<string>>(new Set())
 
   function toggleStudent(id: string) {
     const newSet = new Set(selectedStudents)
@@ -103,32 +167,11 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
   }
 
   function toggleAll() {
-    if (selectedStudents.size === filteredStudents.length) setSelectedStudents(new Set())
-    else setSelectedStudents(new Set(filteredStudents.map(s => s.id)))
+    const allOnPage = students.every(s => selectedStudents.has(s.id))
+    const newSet = new Set(selectedStudents)
+    students.forEach(s => { if (allOnPage) newSet.delete(s.id); else newSet.add(s.id) })
+    setSelectedStudents(newSet)
   }
-
-  const filteredStudents = useMemo(() => {
-    setCurrentPage(1) // Reset page when filters change
-    return students.filter(s => {
-      const matchSearch = !search || [s.full_name, s.school_name, s.student_mobile, s.interested_branch]
-        .some((f: any) => String(f || '').toLowerCase().includes(search.toLowerCase()))
-      const matchStatus = !statusFilter || s.status === statusFilter
-      const matchStream = !streamFilter || String(s.stream || '').toUpperCase().includes(streamFilter.toUpperCase())
-      const matchFaculty = !facultyFilter
-        ? true
-        : facultyFilter === '__unassigned__'
-          ? !s.assigned_faculty_id
-          : s.assigned_faculty_id === facultyFilter
-      return matchSearch && matchStatus && matchStream && matchFaculty
-    })
-  }, [students, search, statusFilter, streamFilter, facultyFilter])
-
-  const paginatedStudents = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage
-    return filteredStudents.slice(start, start + itemsPerPage)
-  }, [filteredStudents, currentPage])
-
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage)
 
   const filteredFaculty = useMemo(() => {
     return allFaculty.filter(f => {
@@ -147,7 +190,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
     })
   }, [allFaculty, facultySearch, facultyDeptFilter, facultyLoginFilter])
 
-  // Charts data
+  // Charts data — uses server-supplied counts so the chart is accurate even before students tab is loaded
   const facultyChartData = allFaculty.map(f => ({
     name: f.full_name.split(' ')[0],
     consultations: f.total_consultations,
@@ -156,11 +199,11 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
   }))
 
   const statusDistribution = [
-    { name: 'New', value: students.filter(s => s.status === 'New').length, color: STATUS_COLORS.New },
-    { name: 'Contacted', value: students.filter(s => s.status === 'Contacted').length, color: STATUS_COLORS.Contacted },
-    { name: 'Interested', value: students.filter(s => s.status === 'Interested').length, color: STATUS_COLORS.Interested },
-    { name: 'Registered', value: students.filter(s => s.status === 'Registered').length, color: STATUS_COLORS.Registered },
-    { name: 'Admitted', value: students.filter(s => s.status === 'Admitted').length, color: STATUS_COLORS.Admitted },
+    { name: 'New',        value: stats.newStudents,        color: STATUS_COLORS.New },
+    { name: 'Contacted',  value: stats.contactedStudents,  color: STATUS_COLORS.Contacted },
+    { name: 'Interested', value: stats.interestedStudents, color: STATUS_COLORS.Interested },
+    { name: 'Registered', value: stats.registeredStudents, color: STATUS_COLORS.Registered },
+    { name: 'Admitted',   value: stats.convertedStudents,  color: STATUS_COLORS.Admitted },
   ].filter(s => s.value > 0)
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -236,24 +279,57 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
     setImportPreview(null)
   }
 
-  function exportStudents() {
-    const data = filteredStudents.map(s => ({
-      'Full Name': s.full_name,
-      'School Name': s.school_name || '',
-      'Student Mobile': s.student_mobile || '',
-      'Parent Mobile': s.parent_mobile || '',
-      'Caste Category': s.caste_category || '',
-      'Stream': s.stream || '',
-      'Interested Branch': s.interested_branch || '',
-      'Assigned Faculty': s.faculty?.full_name || '',
-      'Status': s.status,
-      'Total Consultations': s.total_consultations,
-      'Last Consulted': s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '',
-    }))
-    const ws = XLSX.utils.json_to_sheet(data)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Students')
-    XLSX.writeFile(wb, `students_export_${new Date().toISOString().split('T')[0]}.xlsx`)
+  async function exportStudents() {
+    setExporting(true)
+    try {
+      // Fetch ALL pages with remarks for a complete export
+      let allRows: any[] = []
+      let page = 1
+      const pageSize = 150
+      while (true) {
+        const params = new URLSearchParams({
+          page: String(page), pageSize: String(pageSize),
+          withRemarks: 'true',
+          ...(search       && { search }),
+          ...(statusFilter && { status: statusFilter }),
+          ...(streamFilter && { stream: streamFilter }),
+          ...(facultyFilter && { faculty: facultyFilter }),
+        })
+        const res  = await fetch(`/api/admin/students?${params}`)
+        const json = await res.json()
+        if (!res.ok) break
+        allRows.push(...json.students)
+        if (allRows.length >= json.total || json.students.length < pageSize) break
+        page++
+      }
+
+      const data = allRows.map(s => ({
+        'Full Name':            s.full_name,
+        'School Name':          s.school_name || '',
+        'Student Mobile':       s.student_mobile || '',
+        'Parent Mobile':        s.parent_mobile || '',
+        'Caste Category':       s.caste_category || '',
+        'Stream':               s.stream || '',
+        'Interested Branch':    s.interested_branch || '',
+        'Assigned Faculty':     s.faculty?.full_name || '',
+        'Status':               s.status,
+        'Total Consultations':  s.total_consultations,
+        'Last Consulted':       s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '',
+        'Consultation Remarks': s.remarks_history || '',
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(data)
+      // Auto column widths
+      const colWidths = Object.keys(data[0] || {}).map(k =>
+        ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+      )
+      ws['!cols'] = colWidths
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Students')
+      XLSX.writeFile(wb, `students_export_${new Date().toISOString().split('T')[0]}.xlsx`)
+    } finally {
+      setExporting(false)
+    }
   }
 
   function exportFaculty() {
@@ -295,6 +371,177 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
     XLSX.writeFile(wb, `faculty_credentials_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
+  async function exportFacultyStudentsExcel(facultyId: string, facultyName: string) {
+    setExporting(true)
+    try {
+      let allRows: any[] = []
+      let page = 1
+      const pageSize = 150
+      while (true) {
+        const params = new URLSearchParams({
+          page: String(page),
+          pageSize: String(pageSize),
+          faculty: facultyId
+        })
+        const res = await fetch(`/api/admin/students?${params}`)
+        const json = await res.json()
+        if (!res.ok) break
+        allRows.push(...json.students)
+        if (allRows.length >= json.total || json.students.length < pageSize) break
+        page++
+      }
+
+      const data = allRows.map(s => ({
+        'Student Name':         s.full_name,
+        'School Name':          s.school_name || '-',
+        'Student Mobile':       s.student_mobile || '-',
+        'Parent Mobile':        s.parent_mobile || '-',
+        'Category':             s.caste_category || '-',
+        'Stream':               s.stream || '-',
+        'Interested Branch':    s.interested_branch || '-',
+        'Status':               s.status,
+        'Total Consultations':  s.total_consultations,
+        'Last Consulted':       s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '-',
+        'Consultation Remarks': s.remarks_history || '-',
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(data)
+      const colWidths = Object.keys(data[0] || {}).map(k =>
+        ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+      )
+      ws['!cols'] = colWidths
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Assigned Students')
+      XLSX.writeFile(wb, `${facultyName.replace(/\s+/g, '_')}_students.xlsx`)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function exportAllFacultyIndividualSheets(mode: 'single-workbook' | 'separate-files') {
+    setExporting(true)
+    try {
+      let allStudents: any[] = []
+      let page = 1
+      const pageSize = 150
+      while (true) {
+        const params = new URLSearchParams({
+          page: String(page),
+          pageSize: String(pageSize),
+        })
+        const res = await fetch(`/api/admin/students?${params}`)
+        const json = await res.json()
+        if (!res.ok) break
+        allStudents.push(...json.students)
+        if (allStudents.length >= json.total || json.students.length < pageSize) break
+        page++
+      }
+
+      const facultyStudentsMap: Record<string, any[]> = {}
+      allStudents.forEach(s => {
+        const fid = s.assigned_faculty_id || 'unassigned'
+        if (!facultyStudentsMap[fid]) facultyStudentsMap[fid] = []
+        facultyStudentsMap[fid].push(s)
+      })
+
+      if (mode === 'single-workbook') {
+        const wb = XLSX.utils.book_new()
+        
+        allFaculty.forEach(f => {
+          const fStudents = facultyStudentsMap[f.id] || []
+          const data = fStudents.map(s => ({
+            'Student Name':         s.full_name,
+            'School Name':          s.school_name || '-',
+            'Student Mobile':       s.student_mobile || '-',
+            'Parent Mobile':        s.parent_mobile || '-',
+            'Category':             s.caste_category || '-',
+            'Stream':               s.stream || '-',
+            'Interested Branch':    s.interested_branch || '-',
+            'Status':               s.status,
+            'Total Consultations':  s.total_consultations,
+            'Last Consulted':       s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '-',
+            'Consultation Remarks': s.remarks_history || '-',
+          }))
+
+          const ws = XLSX.utils.json_to_sheet(data)
+          const colWidths = Object.keys(data[0] || {}).map(k =>
+            ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+          )
+          ws['!cols'] = colWidths
+          
+          const sheetName = f.full_name.replace(/[:\\/?*\[\]]/g, '').substring(0, 30) || `Faculty_${f.id.substring(0, 4)}`
+          XLSX.utils.book_append_sheet(wb, ws, sheetName)
+        })
+
+        const unassigned = facultyStudentsMap['unassigned'] || []
+        if (unassigned.length > 0) {
+          const data = unassigned.map(s => ({
+            'Student Name':         s.full_name,
+            'School Name':          s.school_name || '-',
+            'Student Mobile':       s.student_mobile || '-',
+            'Parent Mobile':        s.parent_mobile || '-',
+            'Category':             s.caste_category || '-',
+            'Stream':               s.stream || '-',
+            'Interested Branch':    s.interested_branch || '-',
+            'Status':               s.status,
+            'Total Consultations':  s.total_consultations,
+            'Last Consulted':       s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '-',
+            'Consultation Remarks': s.remarks_history || '-',
+          }))
+          const ws = XLSX.utils.json_to_sheet(data)
+          const colWidths = Object.keys(data[0] || {}).map(k =>
+            ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+          )
+          ws['!cols'] = colWidths
+          XLSX.utils.book_append_sheet(wb, ws, 'Unassigned')
+        }
+
+        XLSX.writeFile(wb, `all_faculty_students_${new Date().toISOString().split('T')[0]}.xlsx`)
+      } else {
+        let delay = 0
+        allFaculty.forEach(f => {
+          const fStudents = facultyStudentsMap[f.id] || []
+          if (fStudents.length === 0) return
+
+          setTimeout(() => {
+            const data = fStudents.map(s => ({
+              'Student Name':         s.full_name,
+              'School Name':          s.school_name || '-',
+              'Student Mobile':       s.student_mobile || '-',
+              'Parent Mobile':        s.parent_mobile || '-',
+              'Category':             s.caste_category || '-',
+              'Stream':               s.stream || '-',
+              'Interested Branch':    s.interested_branch || '-',
+              'Status':               s.status,
+              'Total Consultations':  s.total_consultations,
+              'Last Consulted':       s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '-',
+              'Consultation Remarks': s.remarks_history || '-',
+            }))
+
+            const ws = XLSX.utils.json_to_sheet(data)
+            const colWidths = Object.keys(data[0] || {}).map(k =>
+              ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+            )
+            ws['!cols'] = colWidths
+
+            const wb = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(wb, ws, 'Assigned Students')
+            XLSX.writeFile(wb, `${f.full_name.replace(/\s+/g, '_')}_students.xlsx`)
+          }, delay)
+
+          delay += 400
+        })
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const NAV_ITEMS = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'students', label: 'Students', icon: Users },
@@ -321,7 +568,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
           <span style={{ fontWeight: '800', fontSize: '0.95rem' }}>ADMIN</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '700', color: 'white' }}>
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: '700', color: 'white' }}>
             {displayName[0]}
           </div>
         </div>
@@ -350,7 +597,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
             </div>
             <div>
               <div style={{ fontWeight: '800', fontSize: '1.1rem', color: 'var(--text-primary)' }}>RNGPIT</div>
-              <div style={{ fontSize: '0.7rem', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: '800', letterSpacing: '0.05em' }}>
                 {adminFaculty.role === 'hod' ? `HOD PORTAL - ${adminFaculty.department}` : 'ADMIN PORTAL'}
               </div>
             </div>
@@ -359,13 +606,13 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
 
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #f59e0b, #ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700', color: 'white' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--primary-light))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: '700', color: 'white' }}>
               {displayName[0]}
             </div>
             <div>
               <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{displayName}</div>
-              <div style={{ color: '#f59e0b', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Crown size={10} /> {adminFaculty.role === 'hod' ? `HOD - ${adminFaculty.department}` : 'Administrator'}
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                <Crown size={10} style={{ color: 'var(--accent-dark)' }} /> {adminFaculty.role === 'hod' ? `HOD - ${adminFaculty.department}` : 'Administrator'}
               </div>
             </div>
           </div>
@@ -399,7 +646,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
         {activeTab === 'overview' && (
           <div>
             <div style={{ marginBottom: '2rem' }}>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, #f1f5f9, #f59e0b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 Admin Overview
               </h1>
               <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Complete system performance at a glance</p>
@@ -408,12 +655,12 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
             {/* Stats grid */}
             <div className="stats-grid" style={{ marginBottom: '2rem' }}>
               {[
-                { label: 'Total Students', value: stats.totalStudents, color: '#818cf8', icon: Users },
+                { label: 'Total Students', value: stats.totalStudents, color: 'var(--primary-light)', icon: Users },
                 { label: 'New Leads', value: stats.newStudents, color: '#94a3b8', icon: Database },
-                { label: 'Consultations', value: stats.totalConsultations, color: '#60a5fa', icon: Phone },
-                { label: 'Converted', value: stats.convertedStudents, color: '#34d399', icon: CheckCircle },
-                { label: 'Total Faculty', value: stats.totalFaculty, color: '#f59e0b', icon: Award },
-                { label: 'Conversion Rate', value: `${stats.conversionRate}%`, color: '#06b6d4', icon: TrendingUp },
+                { label: 'Consultations', value: stats.totalConsultations, color: '#3b82f6', icon: Phone },
+                { label: 'Converted', value: stats.convertedStudents, color: '#10b981', icon: CheckCircle },
+                { label: 'Total Faculty', value: stats.totalFaculty, color: 'var(--accent)', icon: Award },
+                { label: 'Conversion Rate', value: `${stats.conversionRate}%`, color: 'var(--accent)', icon: TrendingUp },
               ].map(stat => (
                 <div key={stat.label} className="stat-card">
                   <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${stat.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.8rem' }}>
@@ -438,8 +685,8 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                       <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 11 }} />
                       <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
-                      <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }} />
-                      <Bar dataKey="consultations" fill="#6366f1" radius={[4,4,0,0]} name="Consultations" />
+                      <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-primary)' }} />
+                      <Bar dataKey="consultations" fill="var(--primary)" radius={[4,4,0,0]} name="Consultations" />
                       <Bar dataKey="converted" fill="#10b981" radius={[4,4,0,0]} name="Converted" />
                     </BarChart>
                   </ResponsiveContainer>
@@ -458,7 +705,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                         <Cell key={entry.name} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px' }} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', color: 'var(--text-primary)' }} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -532,17 +779,17 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, #f1f5f9, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                   Student Management
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{students.length} total students</p>
               </div>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button className="btn-secondary" style={{ fontSize: '0.85rem' }} onClick={exportStudents}>
-                  <Download size={16} /> Export
+                <button className="btn-secondary" style={{ fontSize: '0.85rem' }} onClick={exportStudents} disabled={exporting}>
+                  {exporting ? <><Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> Exporting...</> : <><Download size={16} /> Export</>}
                 </button>
                 <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
-                <button className="btn-secondary" style={{ fontSize: '0.85rem', background: 'rgba(99,102,241,0.1)', color: '#818cf8', borderColor: 'rgba(99,102,241,0.3)' }} onClick={() => setShowPasteModal(true)}>
+                <button className="btn-secondary" style={{ fontSize: '0.85rem', background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary-light)', borderColor: 'rgba(var(--primary-rgb),0.3)' }} onClick={() => setShowPasteModal(true)}>
                   <FileSpreadsheet size={16} /> Paste CSV
                 </button>
                 <button className="btn-secondary" style={{ fontSize: '0.85rem' }} onClick={() => fileInputRef.current?.click()}>
@@ -557,8 +804,8 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
 
             {/* Reassign Selection Action */}
             {selectedStudents.size > 0 && (
-              <div className="animate-slide-up" style={{ padding: '12px 16px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', borderRadius: '10px', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.9rem', color: '#818cf8', fontWeight: '600' }}>
+              <div className="animate-slide-up" style={{ padding: '12px 16px', background: 'rgba(var(--primary-rgb),0.1)', border: '1px solid rgba(var(--primary-rgb),0.3)', borderRadius: '10px', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--primary-light)', fontWeight: '600' }}>
                   {selectedStudents.size} student({selectedStudents.size > 1 ? 's' : ''}) selected
                 </span>
                 <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => setShowReassignModal(true)}>
@@ -614,26 +861,39 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
             <div className="filters-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', flex: '1', minWidth: '200px' }}>
                 <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                <input className="input-field" style={{ paddingLeft: '42px' }} placeholder="Search students..." value={search} onChange={e => setSearch(e.target.value)} />
+                <input
+                  className="input-field"
+                  style={{ paddingLeft: '42px' }}
+                  placeholder="Search students..."
+                  value={searchInput}
+                  onChange={e => handleSearchChange(e.target.value)}
+                />
               </div>
-              <select className="input-field" style={{ width: 'auto' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <select className="input-field" style={{ width: 'auto' }} value={statusFilter} onChange={e => applyFilter(setStatusFilter, e.target.value)}>
                 <option value="">All Status</option>
                 {['New', 'Contacted', 'Interested', 'Registered', 'Admitted'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <select className="input-field" style={{ width: 'auto' }} value={streamFilter} onChange={e => setStreamFilter(e.target.value)}>
+              <select className="input-field" style={{ width: 'auto' }} value={streamFilter} onChange={e => applyFilter(setStreamFilter, e.target.value)}>
                 <option value="">All Streams</option>
                 <option value="A">Stream A</option>
                 <option value="B">Stream B</option>
+                <option value="AB">AB</option>
+                <option value="COMMERCE">Commerce</option>
+                <option value="DIPLOMA">Diploma</option>
+                <option value="SSC">SSC</option>
               </select>
-              <select className="input-field" style={{ width: 'auto' }} value={facultyFilter} onChange={e => setFacultyFilter(e.target.value)}>
+              <select className="input-field" style={{ width: 'auto' }} value={facultyFilter} onChange={e => applyFilter(setFacultyFilter, e.target.value)}>
                 <option value="">All Faculty</option>
                 <option value="__unassigned__">⚠️ Unassigned Students</option>
                 {allFaculty.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
               </select>
             </div>
 
-            <div style={{ marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Showing <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{filteredStudents.length}</span> of {students.length}
+            <div style={{ marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {studentsLoading
+                ? <><Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Loading...</>
+                : <>Showing <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{students.length}</span> of <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{studentsTotal}</span> students</>
+              }
             </div>
 
             {/* Students table */}
@@ -642,18 +902,10 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                 <thead>
                   <tr>
                     <th style={{ width: '40px', textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudents.has(s.id))} 
-                        onChange={() => {
-                          const allSelected = paginatedStudents.every(s => selectedStudents.has(s.id))
-                          const newSet = new Set(selectedStudents)
-                          paginatedStudents.forEach(s => {
-                            if (allSelected) newSet.delete(s.id)
-                            else newSet.add(s.id)
-                          })
-                          setSelectedStudents(newSet)
-                        }} 
+                      <input
+                        type="checkbox"
+                        checked={students.length > 0 && students.every(s => selectedStudents.has(s.id))}
+                        onChange={toggleAll}
                       />
                     </th>
                     <th>Student</th>
@@ -664,12 +916,13 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                     <th>Faculty</th>
                     <th>Consults</th>
                     <th>Last Contacted</th>
+                    <th>Latest Remark</th>
                     <th>Mobile</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedStudents.map(student => (
-                    <tr key={student.id} style={{ background: selectedStudents.has(student.id) ? 'rgba(99,102,241,0.05)' : 'transparent' }}>
+                  {students.map(student => (
+                    <tr key={student.id} style={{ background: selectedStudents.has(student.id) ? 'rgba(var(--primary-rgb),0.05)' : 'transparent', opacity: studentsLoading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
                       <td style={{ textAlign: 'center' }}>
                         <input 
                           type="checkbox" 
@@ -698,6 +951,16 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                       <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{student.faculty?.full_name || <span style={{ color: 'var(--text-muted)' }}>Unassigned</span>}</td>
                       <td style={{ textAlign: 'center', color: '#60a5fa', fontWeight: '600' }}>{student.total_consultations}</td>
                       <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{student.last_consulted_at ? new Date(student.last_consulted_at).toLocaleDateString('en-IN') : '-'}</td>
+                      <td
+                        title={student.remarks_history || undefined}
+                        style={{
+                          maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          fontSize: '0.78rem', color: student.latest_remark ? 'var(--text-secondary)' : 'var(--text-muted)',
+                          cursor: student.remarks_history ? 'help' : 'default'
+                        }}
+                      >
+                        {student.latest_remark || <span style={{ opacity: 0.4 }}>—</span>}
+                      </td>
                       <td>
                         {student.student_mobile ? (
                           <a href={`tel:${student.student_mobile}`} style={{ color: 'var(--primary-light)', textDecoration: 'none', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
@@ -707,35 +970,74 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                       </td>
                     </tr>
                   ))}
-                  {filteredStudents.length === 0 && (
-                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No students found</td></tr>
+                  {!studentsLoading && students.length === 0 && (
+                    <tr><td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No students found</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginTop: '1.5rem', marginBottom: '1rem' }}>
-                <button 
-                  className="btn-secondary" 
-                  disabled={currentPage === 1}
+            {/* Server-side Pagination */}
+            {studentsTotalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                <button
+                  className="btn-secondary"
+                  disabled={currentPage === 1 || studentsLoading}
+                  onClick={() => setCurrentPage(1)}
+                  style={{ padding: '7px 12px', fontSize: '0.82rem' }}
+                >
+                  « First
+                </button>
+                <button
+                  className="btn-secondary"
+                  disabled={currentPage === 1 || studentsLoading}
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                  style={{ padding: '7px 14px', fontSize: '0.85rem' }}
                 >
                   Previous
                 </button>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                  Page <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{currentPage}</span> of {totalPages}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {Array.from({ length: Math.min(5, studentsTotalPages) }, (_, i) => {
+                    const start = Math.max(1, Math.min(currentPage - 2, studentsTotalPages - 4))
+                    const p = start + i
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        disabled={studentsLoading}
+                        style={{
+                          width: '36px', height: '36px', borderRadius: '8px', border: '1px solid',
+                          borderColor: p === currentPage ? 'rgba(var(--primary-rgb),0.5)' : 'var(--border)',
+                          background: p === currentPage ? 'rgba(var(--primary-rgb),0.15)' : 'transparent',
+                          color: p === currentPage ? 'var(--primary-light)' : 'var(--text-muted)',
+                          cursor: studentsLoading ? 'not-allowed' : 'pointer',
+                          fontWeight: p === currentPage ? '700' : '400', fontSize: '0.85rem'
+                        }}
+                      >
+                        {p}
+                      </button>
+                    )
+                  })}
                 </div>
-                <button 
-                  className="btn-secondary" 
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+                <button
+                  className="btn-secondary"
+                  disabled={currentPage === studentsTotalPages || studentsLoading}
+                  onClick={() => setCurrentPage(p => Math.min(studentsTotalPages, p + 1))}
+                  style={{ padding: '7px 14px', fontSize: '0.85rem' }}
                 >
                   Next
                 </button>
+                <button
+                  className="btn-secondary"
+                  disabled={currentPage === studentsTotalPages || studentsLoading}
+                  onClick={() => setCurrentPage(studentsTotalPages)}
+                  style={{ padding: '7px 12px', fontSize: '0.82rem' }}
+                >
+                  Last »
+                </button>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginLeft: '4px' }}>
+                  Page {currentPage} / {studentsTotalPages} &nbsp;·&nbsp; {studentsTotal} total
+                </span>
               </div>
             )}
           </div>
@@ -746,12 +1048,18 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div>
-                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, #f1f5f9, #f59e0b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                   Faculty Management
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{allFaculty.length} team members</p>
               </div>
               <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <button className="btn-secondary" onClick={() => exportAllFacultyIndividualSheets('single-workbook')} disabled={exporting}>
+                  <Download size={16} /> {exporting ? 'Exporting...' : 'Export All (Multi-Tab)'}
+                </button>
+                <button className="btn-secondary" onClick={() => exportAllFacultyIndividualSheets('separate-files')} disabled={exporting}>
+                  <Download size={16} /> {exporting ? 'Exporting...' : 'Export All (Separate)'}
+                </button>
                 <button className="btn-secondary" onClick={exportFaculty}>
                   <Download size={16} /> Export Data
                 </button>
@@ -826,7 +1134,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                           
                           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
                             {[
-                              { label: 'Students', value: f.total_assigned, color: '#818cf8' },
+                              { label: 'Students', value: f.total_assigned, color: 'var(--primary-light)' },
                               { label: 'Consults', value: f.total_consultations, color: '#60a5fa' },
                               { label: 'Converted', value: f.leads_converted, color: '#34d399' },
                               { label: 'Rate', value: `${f.total_assigned ? Math.round((f.leads_converted / f.total_assigned) * 100) : 0}%`, color: '#06b6d4' },
@@ -852,6 +1160,21 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                           }}
                         >
                           <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>Edit Details</span>
+                        </button>
+
+                        {/* Export Excel button */}
+                        <button
+                          onClick={() => exportFacultyStudentsExcel(f.id, f.full_name)}
+                          disabled={exporting}
+                          style={{
+                            background: 'rgba(var(--primary-rgb),0.07)',
+                            border: '1px solid rgba(var(--primary-rgb),0.25)',
+                            borderRadius: '8px', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                            color: 'var(--primary-light)', cursor: exporting ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                          }}
+                        >
+                          <Download size={14} />
+                          <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>Export Excel</span>
                         </button>
 
                         {/* Adjust Points button */}
@@ -922,8 +1245,8 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
                         <button 
                           onClick={() => setExpandedFaculty(isExpanded ? null : f.id)}
                           style={{
-                            background: isExpanded ? 'rgba(99,102,241,0.1)' : 'transparent',
-                            border: `1px solid ${isExpanded ? 'rgba(99,102,241,0.3)' : 'var(--border)'}`,
+                            background: isExpanded ? 'rgba(var(--primary-rgb),0.1)' : 'transparent',
+                            border: `1px solid ${isExpanded ? 'rgba(var(--primary-rgb),0.3)' : 'var(--border)'}`,
                             borderRadius: '8px', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                             color: isExpanded ? 'var(--primary-light)' : 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s'
                           }}
@@ -1021,7 +1344,7 @@ export default function AdminDashboardClient({ adminFaculty, initialStudents, al
         {/* SETTINGS */}
         {activeTab === 'settings' && (
           <div style={{ maxWidth: '600px' }}>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, #f1f5f9, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '2rem' }}>
+            <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '2rem' }}>
               Settings
             </h1>
 

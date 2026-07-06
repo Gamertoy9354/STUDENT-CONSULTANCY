@@ -104,10 +104,10 @@ export default function PasteFacultyModal({ onClose, onSuccess, adminFaculty }: 
                 display: 'flex', 
                 gap: '8px', 
                 fontFamily: 'monospace', 
-                background: 'rgba(0,0,0,0.3)', 
+                background: '#f1f5f9', 
                 padding: '6px 12px', 
                 borderRadius: '6px',
-                color: '#a5b4fc',
+                color: 'var(--primary-light)',
                 whiteSpace: 'nowrap',
                 overflowX: 'auto'
               }}>

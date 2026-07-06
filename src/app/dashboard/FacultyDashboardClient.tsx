@@ -50,7 +50,7 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
       const data = filteredStudents.map(s => {
         const history = consMap[s.id] || []
         const historySorted = history.sort((a: any, b: any) => new Date(b.consulted_at).getTime() - new Date(a.consulted_at).getTime())
-        const remarksString = historySorted.map((h: any) => `[${new Date(h.consulted_at).toLocaleDateString('en-IN')}] ${h.old_status} -> ${h.new_status}: ${h.remarks}`).join(' | ')
+        const remarksString = historySorted.map((h: any) => `[${new Date(h.consulted_at).toLocaleDateString('en-IN')}] ${h.old_status || 'New'} -> ${h.new_status || 'Contacted'}: ${h.remarks || ''}`).join(' | ')
         
         return {
           'Student Name': s.full_name,
@@ -62,14 +62,22 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
           'Interested Branch': s.interested_branch || '-',
           'Status': s.status,
           'Total Consultations': s.total_consultations,
-          'Consultation Remarks': remarksString
+          'Last Consulted': s.last_consulted_at ? new Date(s.last_consulted_at).toLocaleDateString('en-IN') : '-',
+          'Consultation Remarks': remarksString || '-'
         }
       })
       
       const ws = XLSX.utils.json_to_sheet(data)
+      const colWidths = Object.keys(data[0] || {}).map(k =>
+        ({ wch: Math.min(80, Math.max(k.length + 2, ...data.map(r => String((r as any)[k] || '').length))) })
+      )
+      ws['!cols'] = colWidths
+
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'My Students')
-      XLSX.writeFile(wb, `my_students_export.xlsx`)
+      XLSX.writeFile(wb, `${faculty.full_name.replace(/\s+/g, '_')}_students_export.xlsx`)
+    } catch (err) {
+      console.error(err)
     } finally {
       setExporting(false)
     }
@@ -89,14 +97,20 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
     total: students.length,
     new: students.filter(s => s.status === 'New').length,
     consulted: students.filter(s => s.status !== 'New').length,
-    converted: students.filter(s => ['Registered', 'Admitted'].includes(s.status)).length,
+    converted: students.filter(s => s.status === 'Admitted').length,
   }), [students])
 
   const nextMilestone = milestones.find(m => m.points_required > faculty.reward_points)
 
-  function onConsultationComplete(studentId: string, newStatus: string) {
+  function onConsultationComplete(studentId: string, newStatus: string, interestedBranch?: string) {
     setStudents(prev => prev.map(s =>
-      s.id === studentId ? { ...s, status: newStatus as Student['status'], total_consultations: s.total_consultations + 1, last_consulted_at: new Date().toISOString() } : s
+      s.id === studentId ? { 
+        ...s, 
+        status: newStatus as Student['status'], 
+        total_consultations: s.total_consultations + 1, 
+        last_consulted_at: new Date().toISOString(),
+        ...(interestedBranch && { interested_branch: interestedBranch })
+      } : s
     ))
     setShowConsultModal(false)
     setSelectedStudent(null)
@@ -160,15 +174,15 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
 
         {/* Faculty Info */}
         <div style={{ padding: '1.2rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ background: 'linear-gradient(135deg,rgba(99,102,241,.15),rgba(6,182,212,.08))', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(99,102,241,.2)' }}>
-            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: '700', color: 'white', marginBottom: '0.7rem' }}>
+          <div style={{ background: 'linear-gradient(135deg,rgba(var(--primary-rgb),.15),rgba(var(--accent-rgb),.08))', borderRadius: '12px', padding: '1rem', border: '1px solid rgba(var(--primary-rgb),.2)' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'linear-gradient(135deg,var(--primary),var(--primary-light))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: '700', color: 'white', marginBottom: '0.7rem' }}>
               {faculty.full_name[0].toUpperCase()}
             </div>
             <div style={{ fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>{faculty.full_name}</div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px' }}>{faculty.department || 'Faculty'}</div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(245,158,11,.15)', border: '1px solid rgba(245,158,11,.3)', borderRadius: '20px', padding: '4px 10px', marginTop: '8px' }}>
-              <Star size={12} style={{ color: '#f59e0b' }} />
-              <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontWeight: '600' }}>{faculty.reward_points} pts</span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(232, 200, 124, 0.15)', border: '1px solid rgba(232, 200, 124, 0.4)', borderRadius: '20px', padding: '4px 10px', marginTop: '8px' }}>
+              <Star size={12} style={{ color: 'var(--accent-dark)', fill: 'var(--accent-dark)' }} />
+              <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: '700' }}>{faculty.reward_points} pts</span>
             </div>
           </div>
         </div>
@@ -176,7 +190,7 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
         {/* Nav */}
         <nav style={{ flex: 1, padding: '1rem 0' }}>
           {[
-            { tab: 'students' as const, icon: Users, label: 'My Students', badge: students.length, badgeColor: 'rgba(99,102,241,0.2)', badgeText: 'var(--primary-light)' },
+            { tab: 'students' as const, icon: Users, label: 'My Students', badge: students.length, badgeColor: 'rgba(var(--primary-rgb),0.2)', badgeText: 'var(--primary-light)' },
             { tab: 'rewards' as const, icon: Award, label: 'Rewards & Badges', badge: achievements.length || null, badgeColor: 'rgba(245,158,11,0.2)', badgeText: '#f59e0b' },
           ].map(item => (
             <button
@@ -227,7 +241,7 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
           <>
             {/* Header */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg,#f1f5f9,#818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg,var(--primary),var(--primary-light))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                 My Students
               </h1>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
@@ -238,7 +252,7 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
             {/* Stats */}
             <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
               {[
-                { label: 'Total', value: stats.total, color: '#818cf8', icon: Users },
+                { label: 'Total', value: stats.total, color: 'var(--primary-light)', icon: Users },
                 { label: 'New Leads', value: stats.new, color: '#94a3b8', icon: Bell },
                 { label: 'Consulted', value: stats.consulted, color: '#60a5fa', icon: Phone },
                 { label: 'Converted', value: stats.converted, color: '#34d399', icon: Award },
@@ -273,6 +287,10 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
                 <option value="">All Streams</option>
                 <option value="A">Stream A</option>
                 <option value="B">Stream B</option>
+                <option value="AB">AB</option>
+                <option value="COMMERCE">Commerce</option>
+                <option value="DIPLOMA">Diploma</option>
+                <option value="SSC">SSC</option>
               </select>
               {(search || statusFilter || streamFilter) && (
                 <button className="btn-secondary" style={{ fontSize: '0.85rem', padding: '10px 14px' }} onClick={() => { setSearch(''); setStatusFilter(''); setStreamFilter(''); }}>
@@ -281,9 +299,14 @@ export default function FacultyDashboardClient({ faculty, initialStudents, achie
               )}
             </div>
 
-            {/* Count */}
-            <div style={{ marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-              Showing <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{filteredStudents.length}</span> of {students.length} students
+            {/* Count & Export */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                Showing <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{filteredStudents.length}</span> of {students.length} students
+              </div>
+              <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.82rem' }} onClick={exportStudentsData} disabled={exporting}>
+                <Download size={14} /> {exporting ? 'Exporting...' : 'Export to Excel'}
+              </button>
             </div>
 
             {/* Student cards */}

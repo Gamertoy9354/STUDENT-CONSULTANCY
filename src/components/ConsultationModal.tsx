@@ -12,11 +12,40 @@ interface Props {
   student: Student
   facultyId: string
   onClose: () => void
-  onComplete: (studentId: string, newStatus: string) => void
+  onComplete: (studentId: string, newStatus: string, interestedBranch?: string) => void
 }
+
+const BRANCH_OPTIONS = [
+  'Chemical Engineering',
+  'Mechanical Engineering',
+  'Computer Science & Engineering',
+  'Electrical Engineering',
+  'Civil Engineering',
+  'Information Technology',
+  'B. Voc Software Development',
+  'B. Voc Production Technology',
+  'B. Voc Solar and Renewable Energy',
+  'B. Voc Industrial Chemistry',
+  'B. Voc Animation and VFX',
+  'B. Voc Building and Construction Technology',
+  'B. Voc Wealth Management',
+  'B.Tech in Mechanical Engineering (D2D)',
+  'B.Tech in Chemical Engineering (D2D)',
+  'B.Tech in Computer Science & Engineering (D2D)',
+  'B.Tech in Electrical Engineering (D2D)',
+  'B.Tech in Civil Engineering (D2D)',
+  'B.Tech in Information Technology (D2D)',
+  'MBA in Logistics & Supply Chain Management',
+  'Integrated M.Sc. IT',
+  'MBA (Logistics and Supply Chain Management)',
+  'Integrated MBA',
+  'MBA (Online Mode)',
+  'MCA (Online Mode)'
+]
 
 export default function ConsultationModal({ student, facultyId, onClose, onComplete }: Props) {
   const [callStatus, setCallStatus] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState(student.interested_branch || '')
   const [interestLevel, setInterestLevel] = useState('')
   const [remarks, setRemarks] = useState('')
   const [language, setLanguage] = useState('English')
@@ -94,6 +123,10 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
     e.preventDefault()
     if (!callStatus) { setError('Please select a call status.'); return }
     if (!interestLevel) { setError('Please select an interest level.'); return }
+    if (callStatus === 'Interested' && !selectedBranch) {
+      setError('Please select an interested branch.');
+      return
+    }
     if (callStatus === 'Admitted' && !receiptFile) {
       setError('Please upload the admission fee receipt image/pdf.')
       return
@@ -140,6 +173,7 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
       remarks,
       language_used: language,
       next_followup_date: followupDate || undefined,
+      interested_branch: callStatus === 'Interested' ? selectedBranch : undefined,
     })
 
     if (result.error) {
@@ -150,7 +184,7 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
 
     setPointsEarned(result.points_earned || 10)
     setSubmitted(true)
-    setTimeout(() => onComplete(student.id, callStatus), 2500)
+    setTimeout(() => onComplete(student.id, callStatus, callStatus === 'Interested' ? selectedBranch : undefined), 2500)
   }
 
   const formatDuration = (secs: number) => `${Math.floor(secs / 60).toString().padStart(2, '0')}:${(secs % 60).toString().padStart(2, '0')}`
@@ -167,7 +201,7 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '44px', height: '44px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, #6366f1, #06b6d4)',
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1.1rem', fontWeight: '700', color: 'white'
             }}>
@@ -218,11 +252,11 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
                 { icon: Star, label: student.stream ? `Stream ${student.stream}` : null },
               ].filter(i => i.label).map((item, idx) => (
                 item.href ? (
-                  <a key={idx} href={item.href} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', color: 'var(--primary-light)', textDecoration: 'none', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <a key={idx} href={item.href} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(var(--primary-rgb),0.1)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', color: 'var(--primary-light)', textDecoration: 'none', border: '1px solid rgba(var(--primary-rgb),0.2)' }}>
                     <item.icon size={13} /> {item.label}
                   </a>
                 ) : (
-                  <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                  <span key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', borderRadius: '8px', padding: '6px 12px', fontSize: '0.8rem', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
                     <item.icon size={13} /> {item.label}
                   </span>
                 )
@@ -242,8 +276,8 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
                     style={{
                       padding: '10px 12px', borderRadius: '10px', fontSize: '0.85rem', fontWeight: '600',
                       cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
-                      background: callStatus === status ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)',
-                      borderColor: callStatus === status ? 'rgba(99,102,241,0.5)' : 'var(--border)',
+                      background: callStatus === status ? 'rgba(var(--primary-rgb),0.1)' : '#f8fafc',
+                      borderColor: callStatus === status ? 'rgba(var(--primary-rgb),0.5)' : 'var(--border)',
                       color: callStatus === status ? 'var(--primary-light)' : 'var(--text-secondary)',
                     }}
                   >
@@ -251,6 +285,25 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
                   </button>
                 ))}
               </div>
+
+              {callStatus === 'Interested' && (
+                <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(var(--primary-rgb),0.05)', borderRadius: '12px', border: '1px dashed rgba(var(--primary-rgb),0.3)' }} className="animate-slide-up">
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '700', color: 'var(--primary-light)', marginBottom: '8px' }}>
+                    Select Interested Branch *
+                  </label>
+                  <select
+                    className="input-field"
+                    style={{ width: '100%', padding: '10px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                    value={selectedBranch}
+                    onChange={e => setSelectedBranch(e.target.value)}
+                  >
+                    <option value="">-- Choose a Branch --</option>
+                    {BRANCH_OPTIONS.map(branch => (
+                      <option key={branch} value={branch}>{branch}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {callStatus === 'Admitted' && (
                 <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(16,185,129,0.05)', borderRadius: '12px', border: '1px dashed rgba(16,185,129,0.3)' }} className="animate-slide-up">
@@ -294,7 +347,7 @@ export default function ConsultationModal({ student, facultyId, onClose, onCompl
                     style={{
                       flex: 1, padding: '12px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700',
                       cursor: 'pointer', transition: 'all 0.2s', border: '1px solid',
-                      background: interestLevel === label ? `${color}20` : 'rgba(255,255,255,0.03)',
+                      background: interestLevel === label ? `${color}20` : '#f8fafc',
                       borderColor: interestLevel === label ? `${color}60` : 'var(--border)',
                       color: interestLevel === label ? color : 'var(--text-secondary)',
                     }}

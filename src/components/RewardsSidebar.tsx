@@ -14,7 +14,7 @@ const BADGE_COLORS: Record<string, { bg: string; border: string; glow: string; l
   bronze: { bg: 'rgba(217,119,6,0.15)', border: 'rgba(217,119,6,0.4)', glow: 'rgba(217,119,6,0.3)', label: '🥉 Bronze' },
   silver: { bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.4)', glow: 'rgba(148,163,184,0.3)', label: '🥈 Silver' },
   gold: { bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.4)', glow: 'rgba(245,158,11,0.3)', label: '🥇 Gold' },
-  platinum: { bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.4)', glow: 'rgba(99,102,241,0.3)', label: '💎 Platinum' },
+  platinum: { bg: 'rgba(27,50,128,0.15)', border: 'rgba(27,50,128,0.4)', glow: 'rgba(27,50,128,0.3)', label: '💎 Platinum' },
 }
 
 export default function RewardsSidebar({ faculty, achievements, milestones }: Props) {
@@ -22,50 +22,50 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
     // Background
-    doc.setFillColor(15, 15, 26)
+    doc.setFillColor(255, 255, 255)
     doc.rect(0, 0, 297, 210, 'F')
 
     // Border
-    doc.setDrawColor(99, 102, 241)
+    doc.setDrawColor(45, 45, 122)
     doc.setLineWidth(3)
     doc.rect(10, 10, 277, 190)
     doc.setLineWidth(1)
-    doc.setDrawColor(6, 182, 212)
+    doc.setDrawColor(232, 200, 124)
     doc.rect(14, 14, 269, 182)
 
     // Title
-    doc.setTextColor(99, 102, 241)
+    doc.setTextColor(45, 45, 122)
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.text('R . N . G . P . I . T', 148.5, 30, { align: 'center' })
     doc.text('STUDENTS COUNSELLING PORTAL', 148.5, 38, { align: 'center' })
 
     // Certificate of Achievement
-    doc.setTextColor(241, 245, 249)
+    doc.setTextColor(45, 45, 122)
     doc.setFontSize(28)
     doc.text('Certificate of Achievement', 148.5, 60, { align: 'center' })
 
     // Presented to
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(148, 163, 184)
+    doc.setTextColor(71, 85, 105)
     doc.text('This certificate is proudly presented to', 148.5, 80, { align: 'center' })
 
     // Name
     doc.setFontSize(32)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(129, 140, 248)
+    doc.setTextColor(232, 200, 124)
     doc.text(faculty.full_name, 148.5, 100, { align: 'center' })
 
     // Achievement
     doc.setFontSize(13)
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(148, 163, 184)
+    doc.setTextColor(71, 85, 105)
     doc.text('for achieving the milestone of', 148.5, 115, { align: 'center' })
 
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(245, 158, 11)
+    doc.setTextColor(232, 200, 124)
     doc.text(achievement.milestone_name || 'Achievement', 148.5, 130, { align: 'center' })
 
     doc.setFontSize(12)
@@ -81,7 +81,7 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
 
     // INNOCREW signature
     doc.setFontSize(9)
-    doc.setTextColor(99, 102, 241)
+    doc.setTextColor(45, 45, 122)
     doc.text('R.N.G. Patel Institute of Technology', 148.5, 182, { align: 'center' })
 
     doc.save(`${faculty.full_name.replace(/\s+/g, '_')}_${achievement.milestone_name?.replace(/\s+/g, '_') || 'Certificate'}.pdf`)
@@ -93,7 +93,7 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
     <div style={{ maxWidth: '900px' }}>
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, #f1f5f9, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+        <h1 style={{ fontSize: '1.8rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--primary-dark), var(--primary-light))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           Rewards & Achievements
         </h1>
         <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Track your milestones and download certificates</p>
@@ -101,8 +101,8 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
 
       {/* Points overview card */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(6,182,212,0.08))',
-        border: '1px solid rgba(99,102,241,0.3)', borderRadius: '20px', padding: '2rem',
+        background: 'linear-gradient(135deg, rgba(var(--primary-rgb),0.15), rgba(var(--accent-rgb),0.08))',
+        border: '1px solid rgba(var(--primary-rgb),0.3)', borderRadius: '20px', padding: '2rem',
         marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap'
       }}>
         <div style={{ flex: '1', minWidth: '200px' }}>
@@ -116,7 +116,7 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
         </div>
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
           {[
-            { label: 'Consultations', value: faculty.total_consultations, icon: Zap, color: '#818cf8' },
+            { label: 'Consultations', value: faculty.total_consultations, icon: Zap, color: 'var(--primary-light)' },
             { label: 'Converted', value: faculty.leads_converted, icon: Trophy, color: '#34d399' },
             { label: 'Badges', value: achievements.length, icon: Award, color: '#f59e0b' },
           ].map(({ label, value, icon: Icon, color }) => (
@@ -216,7 +216,7 @@ export default function RewardsSidebar({ faculty, achievements, milestones }: Pr
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
           {[
-            { label: 'Outbound Call', points: '1 pt', color: '#818cf8' },
+            { label: 'Outbound Call', points: '1 pt', color: 'var(--primary-light)' },
             { label: 'Counseling Success', points: '2 pts', color: '#fbbf24' },
             { label: 'Adm (Mother Dept)', points: '25 pts', color: '#34d399' },
             { label: 'Adm (Other Dept)', points: '15 pts', color: '#10b981' },

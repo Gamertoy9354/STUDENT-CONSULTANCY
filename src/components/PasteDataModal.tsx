@@ -220,17 +220,17 @@ export default function PasteDataModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Column order guide */}
-        <div style={{ padding: '1rem', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', marginBottom: '1rem' }}>
+        <div style={{ padding: '1rem', background: 'rgba(var(--primary-rgb),0.08)', border: '1px solid rgba(var(--primary-rgb),0.2)', borderRadius: '10px', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-            <Info size={14} style={{ color: '#818cf8', flexShrink: 0 }} />
-            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#818cf8' }}>Expected Column Order</span>
+            <Info size={14} style={{ color: 'var(--primary-light)', flexShrink: 0 }} />
+            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--primary-light)' }}>Expected Column Order</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {['Student Name', 'Student Mobile', 'Caste Category', 'Parents Mobile', 'School Name', 'Group A/B', 'Interested Branch', 'Assigned Faculty'].map((col, i) => (
               <span key={col} style={{
                 fontSize: '0.72rem', padding: '3px 9px', borderRadius: '20px',
-                background: i === 0 || i === 7 ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
-                color: i === 0 || i === 7 ? '#818cf8' : 'var(--text-muted)',
+                background: i === 0 || i === 7 ? 'rgba(var(--primary-rgb),0.1)' : '#f1f5f9',
+                color: i === 0 || i === 7 ? 'var(--primary-light)' : 'var(--text-muted)',
                 border: '1px solid var(--border)',
               }}>
                 {i + 1}. {col}
